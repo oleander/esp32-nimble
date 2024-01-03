@@ -38,6 +38,7 @@ embassy-sync = { version = "0.3.0" }
 num_enum = { version = "0.7", default-features = false }
 once_cell = { version = "1.19.0", default-features = false }
 uuid = { version = "1.2.2", default-features = false, features = ["macro-diagnostics"] }
+tokio = { version = "1.35.1", features = ["macros", "rt", "sync"] }
 
 [dev-dependencies]
 esp-idf-sys = { version = "0.33", default-features = false, features = ["binstart", "alloc_handler"] }
