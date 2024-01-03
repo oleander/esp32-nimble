@@ -317,6 +317,7 @@ impl BLEServer {
         match rc {
           Ok(desc) => {
             let server = UnsafeCell::new(server);
+            ::log::info!("AuthenticationComplete: {:?}", desc);
             unsafe {
               if let Some(callback) = (*server.get()).on_authentication_complete.as_mut() {
                 callback(&desc);
@@ -324,6 +325,7 @@ impl BLEServer {
             }
           }
           Err(err) => {
+            ::log::error!("ble_gap_conn_find: {:?}", err);
             return err.0.try_into().unwrap_or(
               esp_idf_sys::BLE_ATT_ERR_INVALID_HANDLE as _
             );
@@ -331,16 +333,13 @@ impl BLEServer {
         }
       }
 
-    //   case BLE_GAP_EVENT_ENC_CHANGE: {
-    //     rc = ble_gap_conn_finid(event->enc_change.conn_handle, &peerInfo.m_desc);
+      18 => {
+        ::log::info!("GAP_EVT_CONN_UPDATE_REQ");
+      }
 
-    //     if(rc != 0) {
-    //         return BLE_ATT_ERR_INVALID_HANDLE;
-    //     }
-
-    //     pServer->m_pServerCallbacks->onAuthenticationComplete(peerInfo);
-    //     return 0;
-    // } // BLE_GAP_EVENT_ENC_CHANGE
+      16 => {
+        ::log::info!("GAP_EVT_SCAN_EVT_MASK");
+      }
 
       esp_idf_sys::BLE_GAP_EVENT_PASSKEY_ACTION => {
         let passkey = unsafe { &event.__bindgen_anon_1.passkey };
