@@ -19,6 +19,11 @@ fn main() {
     ::log::info!("Multi-connect support: start advertising");
     ble_device.get_advertising().start().unwrap();
   });
+
+  server.on_authentication_complete(|desc| {
+    ::log::info!("Authentication complete: {:?}", desc);
+  });
+
   server.on_disconnect(|_desc, reason| {
     ::log::info!("Client disconnected ({:X})", reason);
   });

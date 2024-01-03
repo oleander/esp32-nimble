@@ -24,6 +24,8 @@ pub struct BLEServer {
   on_disconnect: Option<Box<dyn FnMut(&BLEConnDesc, c_int) + Send + Sync>>,
   on_passkey_request: Option<Box<dyn Fn() -> u32 + Send + Sync>>,
   on_confirm_pin: Option<Box<dyn Fn(u32) -> bool + Send + Sync>>,
+  on_authentication_complete: Option<Box<dyn Fn(&BLEConnDesc) + Send + Sync>>,
+  // void BleKeyboard::onAuthenticationComplete(ble_gap_conn_desc *desc) {
 }
 
 impl BLEServer {
@@ -39,6 +41,7 @@ impl BLEServer {
       on_disconnect: None,
       on_passkey_request: None,
       on_confirm_pin: None,
+      on_authentication_complete: None
     }
   }
 
@@ -58,6 +61,14 @@ impl BLEServer {
     callback: impl FnMut(&BLEConnDesc, c_int) + Send + Sync + 'static,
   ) -> &mut Self {
     self.on_disconnect = Some(Box::new(callback));
+    self
+  }
+
+  pub fn on_authentication_complete(
+    &mut self,
+    callback: impl Fn(&BLEConnDesc) + Send + Sync + 'static,
+  ) -> &mut Self {
+    self.on_authentication_complete = Some(Box::new(callback));
     self
   }
 
@@ -299,9 +310,38 @@ impl BLEServer {
         return esp_idf_sys::BLE_GAP_REPEAT_PAIRING_RETRY as _;
       }
       esp_idf_sys::BLE_GAP_EVENT_ENC_CHANGE => {
-        // let enc_change = unsafe { &event.__bindgen_anon_1.enc_change };
         ::log::info!("AuthenticationComplete");
+
+        let rc = unsafe { ble_gap_conn_find(event.__bindgen_anon_1.enc_change.conn_handle) };
+
+        match rc {
+          Ok(desc) => {
+            let server = UnsafeCell::new(server);
+            unsafe {
+              if let Some(callback) = (*server.get()).on_authentication_complete.as_mut() {
+                callback(&desc);
+              }
+            }
+          }
+          Err(err) => {
+            return err.0.try_into().unwrap_or(
+              esp_idf_sys::BLE_ATT_ERR_INVALID_HANDLE as _
+            );
+          }
+        }
       }
+
+    //   case BLE_GAP_EVENT_ENC_CHANGE: {
+    //     rc = ble_gap_conn_finid(event->enc_change.conn_handle, &peerInfo.m_desc);
+
+    //     if(rc != 0) {
+    //         return BLE_ATT_ERR_INVALID_HANDLE;
+    //     }
+
+    //     pServer->m_pServerCallbacks->onAuthenticationComplete(peerInfo);
+    //     return 0;
+    // } // BLE_GAP_EVENT_ENC_CHANGE
+
       esp_idf_sys::BLE_GAP_EVENT_PASSKEY_ACTION => {
         let passkey = unsafe { &event.__bindgen_anon_1.passkey };
         let mut pkey = esp_idf_sys::ble_sm_io {
