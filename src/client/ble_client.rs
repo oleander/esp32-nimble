@@ -222,7 +222,7 @@ impl BLEClient {
   pub async fn get_services(
     &mut self,
   ) -> Result<core::slice::IterMut<'_, BLERemoteService>, BLEReturnCode> {
-    if self.state.services.is_none() {
+    // if self.state.services.is_none() {
       self.state.services = Some(Vec::new());
       unsafe {
         esp_idf_sys::ble_gattc_disc_all_svcs(
@@ -232,7 +232,7 @@ impl BLEClient {
         );
       }
       ble!(self.state.signal.wait().await)?;
-    }
+    // }
 
     Ok(self.state.services.as_mut().unwrap().iter_mut())
   }

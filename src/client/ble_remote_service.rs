@@ -52,7 +52,7 @@ impl BLERemoteService {
   pub async fn get_characteristics(
     &mut self,
   ) -> Result<core::slice::IterMut<'_, BLERemoteCharacteristic>, BLEReturnCode> {
-    if self.state.characteristics.is_none() {
+    // if self.state.characteristics.is_none() {
       self.state.characteristics = Some(Vec::new());
       unsafe {
         ble!(esp_idf_sys::ble_gattc_disc_all_chrs(
@@ -64,7 +64,7 @@ impl BLERemoteService {
         ))?;
       }
       ble!(self.state.signal.wait().await)?;
-    }
+    // }
 
     Ok(self.state.characteristics.as_mut().unwrap().iter_mut())
   }
