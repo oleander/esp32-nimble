@@ -2,11 +2,6 @@
 #![allow(dead_code)]
 
 use esp32_nimble::BLEConnDesc;
-// use esp32_nimble::utilities::mutex::Condvar;
-// use std::sync::Condvar;
-// use std::sync::{Arc as A, Mutex as M, Condvar as C};
-use tokio::sync::{Semaphore, TryAcquireError};
-
 use esp32_nimble::{
   enums::*, hid::*, utilities::mutex::Mutex, BLECharacteristic, BLEDevice, BLEHIDDevice, BLEServer,
 };
@@ -313,7 +308,6 @@ impl Keyboard {
 
 use tokio::sync::Notify;
 
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
   esp_idf_sys::link_patches();
@@ -327,22 +321,15 @@ async fn main() {
   };
 
   let mut keyboard = Keyboard::new();
-  // let semaphore = Semaphore::new(1);
-
   let notify = Arc::new(Notify::new());
-    let notify_clone = notify.clone();
+  let notify_clone = notify.clone();
 
-  // let a_permit = semaphore.acquire().await.unwrap();
   keyboard.on_authentication_complete(move |conn| {
     ::log::info!("on_authentication_complete: {:?}", conn);
-    // a_permit.forget();
     notify_clone.notify_one();
-
   });
 
-  // let b_permit = semaphore.acquire().await.unwrap();
   notify.notified().await;
-
 
   // Wait until the callback above is called
   loop {
