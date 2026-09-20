@@ -298,8 +298,11 @@ impl BLECharacteristic {
     }
 
     fn send_value(&self, value: &[u8], conn_handle: u16, flag: NimbleSub) -> Result<(), BLEError> {
-        let mtu = unsafe { sys::ble_att_mtu(conn_handle) - 3 };
-        if mtu == 0 || flag.is_empty() {
+        // A disconnect racing this call makes ble_att_mtu return zero. Check
+        // before subtracting the ATT header, or debug builds panic on u16
+        // underflow while release builds wrap.
+        let mtu = unsafe { sys::ble_att_mtu(conn_handle) };
+        if mtu <= 3 || flag.is_empty() {
             return BLEError::convert(sys::BLE_HS_EINVAL);
         }
         let server = BLEDevice::take().get_server();
