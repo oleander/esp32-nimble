@@ -346,8 +346,11 @@ impl BLEServer {
                     // `ble_gatts_notify_custom` / `ble_gatts_indicate_custom`
                     // (`ble_gattc.c`, `ble_gap_notify_tx_event`), on the task
                     // that called `notify_with` or `notify` while holding this
-                    // characteristic's lock, which is not recursive.
-                    let chr = unsafe { chr.raw_mut() };
+                    // characteristic's lock, which is not recursive. That
+                    // caller holds a shared borrow of the characteristic, so
+                    // only a shared one is taken here, and the callback is
+                    // reached through its `UnsafeCell`.
+                    let chr = unsafe { chr.raw() };
                     if notify_tx.indication() > 0 {
                         if notify_tx.status == 0 {
                             return 0;
@@ -358,7 +361,7 @@ impl BLEServer {
                             .clear_indicate_wait(notify_tx.conn_handle);
                     }
 
-                    if let Some(callback) = &mut chr.on_notify_tx {
+                    if let Some(callback) = unsafe { &mut *chr.on_notify_tx.get() } {
                         callback(NotifyTx { notify_tx });
                     }
                 }

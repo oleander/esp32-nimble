@@ -70,16 +70,10 @@ impl<T> Mutex<T> {
         self.1.into_inner()
     }
 
+    /// The value without taking the lock, as a shared reference only.
     #[inline]
     pub(crate) unsafe fn raw(&self) -> &'_ T {
-        unsafe { self.1.get().as_mut().unwrap() }
-    }
-
-    /// The value without taking the lock.
-    #[inline]
-    #[allow(clippy::mut_from_ref)]
-    pub(crate) unsafe fn raw_mut(&self) -> &'_ mut T {
-        unsafe { self.1.get().as_mut().unwrap() }
+        unsafe { &*self.1.get() }
     }
 }
 
