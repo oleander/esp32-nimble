@@ -172,7 +172,9 @@ pub struct BLECharacteristic {
     value: AttValue,
     on_read: Option<Box<dyn FnMut(&mut Self, &BLEConnDesc) + Send + Sync>>,
     on_write: Option<Box<dyn FnMut(&mut OnWriteArgs) + Send + Sync>>,
-    pub(crate) on_notify_tx: Option<Box<dyn FnMut(NotifyTx) + Send + Sync>>,
+    /// Reached from `BLE_GAP_EVENT_NOTIFY_TX` without the lock, through a
+    /// shared reference (see `BLEServer::handle_gap_event`).
+    pub(crate) on_notify_tx: UnsafeCell<Option<Box<dyn FnMut(NotifyTx) + Send + Sync>>>,
     descriptors: Vec<Arc<Mutex<BLEDescriptor>>>,
     svc_def_descriptors: Vec<sys::ble_gatt_dsc_def>,
     subscribed_list: Vec<(u16, NimbleSub)>,
@@ -190,7 +192,7 @@ impl BLECharacteristic {
             value: AttValue::new(),
             on_read: None,
             on_write: None,
-            on_notify_tx: None,
+            on_notify_tx: UnsafeCell::new(None),
             descriptors: Vec::new(),
             svc_def_descriptors: Vec::new(),
             subscribed_list: Vec::new(),
@@ -241,7 +243,7 @@ impl BLECharacteristic {
         &mut self,
         callback: impl FnMut(NotifyTx) + Send + Sync + 'static,
     ) -> &mut Self {
-        self.on_notify_tx = Some(Box::new(callback));
+        *self.on_notify_tx.get_mut() = Some(Box::new(callback));
         self
     }
 
