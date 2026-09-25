@@ -475,8 +475,8 @@ impl BLECharacteristic {
         }
     }
 
-    /// Do not call `lock` on this characteristic inside the callback, use the first input instead.
-    /// In the future, this characteristic could be locked while the callback executes.
+    /// This characteristic is locked while the callback is executing. If you call `.lock()` on this characteristic from inside the callback, it will never execute.
+    /// Use the first input instead.
     /// * `callback` - Function to call when a subscription event is recieved, including subscribe and unsubscribe events
     ///   see [`crate::NimbleSub`] for event type
     pub fn on_subscribe(
