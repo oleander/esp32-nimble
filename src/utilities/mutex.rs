@@ -74,6 +74,13 @@ impl<T> Mutex<T> {
     pub(crate) unsafe fn raw(&self) -> &'_ T {
         unsafe { self.1.get().as_mut().unwrap() }
     }
+
+    /// The value without taking the lock.
+    #[inline]
+    #[allow(clippy::mut_from_ref)]
+    pub(crate) unsafe fn raw_mut(&self) -> &'_ mut T {
+        unsafe { self.1.get().as_mut().unwrap() }
+    }
 }
 
 unsafe impl<T> Sync for Mutex<T> where T: Send {}
