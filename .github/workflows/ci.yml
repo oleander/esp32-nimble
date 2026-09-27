@@ -61,6 +61,10 @@ jobs:
           echo "RUSTFLAGS=--cfg espidf_time64" >> "$GITHUB_ENV"
       - name: Fmt check
         run: cargo fmt --check
+      - name: Repeat-pairing host tests
+        run: |
+          rustc --edition 2024 --test .github/tests/repeat_pairing.rs -o /tmp/repeat-pairing-tests
+          /tmp/repeat-pairing-tests
       - name: Clippy check
         run: cargo clippy --target ${{ matrix.target }} -- -D clippy::all -D warnings
       - name: Build

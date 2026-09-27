@@ -24,6 +24,7 @@ pub struct BLEServer {
     on_disconnect: Option<Box<dyn FnMut(&BLEConnDesc, Result<(), BLEError>) + Send + Sync>>,
     on_passkey_request: Option<Box<dyn Fn() -> u32 + Send + Sync>>,
     on_confirm_pin: Option<Box<dyn Fn(u32) -> bool + Send + Sync>>,
+    on_repeat_pairing: Option<Box<dyn Fn(&BLEConnDesc) -> bool + Send + Sync>>,
     on_authentication_complete:
         Option<Box<dyn Fn(&mut Self, &BLEConnDesc, Result<(), BLEError>) + Send + Sync>>,
 }
@@ -41,6 +42,7 @@ impl BLEServer {
             on_disconnect: None,
             on_passkey_request: None,
             on_confirm_pin: None,
+            on_repeat_pairing: None,
             on_authentication_complete: None,
         }
     }
@@ -93,6 +95,21 @@ impl BLEServer {
         callback: impl Fn(u32) -> bool + Send + Sync + 'static,
     ) -> &mut Self {
         self.on_confirm_pin = Some(Box::new(callback));
+        self
+    }
+
+    /// Decide whether an already bonded peer may replace its bond by pairing again.
+    ///
+    /// Called before deleting the existing bond. Return `false` to ignore the
+    /// pairing request and retain the bond, or `true` to allow deletion and retry.
+    /// With no callback, repeat pairing remains allowed. This runs on the NimBLE
+    /// host task; keep it short and do not block. It is not called for ordinary
+    /// encrypted reconnects or for a peer without an existing bond.
+    pub fn on_repeat_pairing(
+        &mut self,
+        callback: impl Fn(&BLEConnDesc) -> bool + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.on_repeat_pairing = Some(Box::new(callback));
         self
     }
 
@@ -381,18 +398,28 @@ impl BLEServer {
             esp_idf_sys::BLE_GAP_EVENT_REPEAT_PAIRING => {
                 let repeat_pairing = unsafe { &event.__bindgen_anon_1.repeat_pairing };
 
-                // Delete the old bond
                 let Ok(desc) = crate::utilities::ble_gap_conn_find(repeat_pairing.conn_handle)
                 else {
                     return esp_idf_sys::BLE_GAP_REPEAT_PAIRING_IGNORE as _;
                 };
-                unsafe {
-                    esp_idf_sys::ble_store_util_delete_peer(&desc.0.peer_id_addr);
-                }
-
-                // Return BLE_GAP_REPEAT_PAIRING_RETRY to indicate that the host should
-                // continue with the pairing operation.
-                return esp_idf_sys::BLE_GAP_REPEAT_PAIRING_RETRY as _;
+                let retry = super::repeat_pairing::retry(
+                    &desc,
+                    server.on_repeat_pairing.as_deref(),
+                    || {
+                        let rc = unsafe {
+                            esp_idf_sys::ble_store_util_delete_peer(&desc.0.peer_id_addr)
+                        };
+                        if rc != 0 {
+                            ::log::warn!("Repeat pairing: deleting the old bond failed: {rc}");
+                        }
+                        rc == 0
+                    },
+                );
+                return if retry {
+                    esp_idf_sys::BLE_GAP_REPEAT_PAIRING_RETRY as _
+                } else {
+                    esp_idf_sys::BLE_GAP_REPEAT_PAIRING_IGNORE as _
+                };
             }
             esp_idf_sys::BLE_GAP_EVENT_ENC_CHANGE => {
                 let enc_change = unsafe { &event.__bindgen_anon_1.enc_change };

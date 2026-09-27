@@ -28,6 +28,8 @@ pub use self::ble_hid_device::BLEHIDDevice;
 mod ble_server;
 pub use self::ble_server::BLEServer;
 
+mod repeat_pairing;
+
 mod ble_service;
 pub use self::ble_service::BLEService;
 
